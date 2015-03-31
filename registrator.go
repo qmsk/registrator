@@ -69,7 +69,7 @@ func main() {
 		assert(errors.New("-deregister must be \"always\" or \"on-success\""))
 	}
 
-	b, err := bridge.New(docker, flag.Arg(0), bridge.Config{
+	b, err := bridge.New(docker, flag.Args(), bridge.Config{
 		HostIp:          *hostIp,
 		Internal:        *internal,
 		ForceTags:       *forceTags,
