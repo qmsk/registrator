@@ -1,14 +1,19 @@
 package skydns2
 
 import (
+	"encoding/json"
 	"log"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/gliderlabs/registrator/bridge"
 )
+
+type Service struct {
+	Host	string	`json:"host"`
+	Port	int	`json:"port,omitempty"`
+}
 
 func init() {
 	bridge.Register(new(Factory), "skydns2")
@@ -26,12 +31,12 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 		log.Fatal("skydns2: dns domain required e.g.: skydns2://<host>/<domain>")
 	}
 
-	return &Skydns2Adapter{client: etcd.NewClient(urls), path: domainPath(uri.Path[1:])}
+	return &Skydns2Adapter{client: etcd.NewClient(urls), domain: uri.Path[1:]}
 }
 
 type Skydns2Adapter struct {
 	client *etcd.Client
-	path   string
+	domain string
 }
 
 func (r *Skydns2Adapter) Ping() error {
@@ -44,9 +49,13 @@ func (r *Skydns2Adapter) Ping() error {
 }
 
 func (r *Skydns2Adapter) Register(service *bridge.Service) error {
-	port := strconv.Itoa(service.Port)
-	record := `{"host":"` + service.IP + `","port":` + port + `}`
-	_, err := r.client.Set(r.servicePath(service), record, uint64(service.TTL))
+	record, err := json.Marshal(Service{r.serviceHost(service), service.Port})
+	if err != nil {
+		log.Println("skydns2: failed to marshal service:", err)
+		return err
+	}
+
+	_, err = r.client.Set(r.servicePath(service), string(record), uint64(service.TTL))
 	if err != nil {
 		log.Println("skydns2: failed to register service:", err)
 	}
@@ -65,8 +74,32 @@ func (r *Skydns2Adapter) Refresh(service *bridge.Service) error {
 	return r.Register(service)
 }
 
+func (r *Skydns2Adapter) containerDomain(service *bridge.Service) string {
+	return domainJoin(service.Container.Hostname, service.Host.Hostname, service.Name, r.domain)
+}
+
+func (r *Skydns2Adapter) serviceDomain(service *bridge.Service) string {
+	return domainJoin(service.Container.Hostname, service.Host.Hostname, "_" + service.Origin.ExposedPort, "_" + service.Origin.PortType, service.Name, r.domain)
+}
+
+func (r *Skydns2Adapter) serviceHost(service *bridge.Service) string {
+	if service.Port == 0 {
+		return service.IP
+	} else {
+		return r.containerDomain(service)
+	}
+}
+
 func (r *Skydns2Adapter) servicePath(service *bridge.Service) string {
-	return r.path + "/" + service.Name + "/" + service.ID
+	if service.Port == 0 {
+		return domainPath(r.containerDomain(service))
+	} else {
+		return domainPath(r.serviceDomain(service))
+	}
+}
+
+func domainJoin(components... string) string {
+	return strings.Join(components, ".")
 }
 
 func domainPath(domain string) string {
@@ -76,3 +109,5 @@ func domainPath(domain string) string {
 	}
 	return "/skydns/" + strings.Join(components, "/")
 }
+
+
