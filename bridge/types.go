@@ -3,8 +3,6 @@ package bridge
 
 import (
 	"net/url"
-
-	dockerapi "github.com/fsouza/go-dockerclient"
 )
 
 type AdapterFactory interface {
@@ -19,12 +17,13 @@ type RegistryAdapter interface {
 }
 
 type Config struct {
-	HostIp          string
-	Internal        bool
-	ForceTags       string
-	RefreshTtl      int
-	RefreshInterval int
-	DeregisterCheck string
+	HostIp            string
+	Internal          bool
+	ForceTags         string
+	RefreshTtl        int
+	RefreshInterval   int
+	DeregisterCheck   string
+	RegisterContainer bool
 }
 
 type Service struct {
@@ -36,7 +35,9 @@ type Service struct {
 	Attrs map[string]string
 	TTL   int
 
-	Origin ServicePort
+	Host         ServiceHost
+	Container    ServiceContainer
+	Origin       ServicePort
 }
 
 type DeadContainer struct {
@@ -44,13 +45,22 @@ type DeadContainer struct {
 	Services []*Service
 }
 
+type ServiceHost struct {
+	Hostname string
+	IP       string
+}
+
+type ServiceContainer struct {
+	Hostname    string
+	ID          string
+	ImageName   string
+	InternalIP  string
+	Meta        []string
+}
+
 type ServicePort struct {
-	HostPort          string
-	HostIP            string
-	ExposedPort       string
-	ExposedIP         string
-	PortType          string
-	ContainerHostname string
-	ContainerID       string
-	container         *dockerapi.Container
+	HostPort    string
+	HostIP      string
+	ExposedPort string
+	PortType    string
 }

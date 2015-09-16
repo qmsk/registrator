@@ -1,6 +1,7 @@
 package bridge
 
 import (
+	"path"
 	"strconv"
 	"strings"
 
@@ -30,11 +31,7 @@ func combineTags(tagParts ...string) []string {
 	return tags
 }
 
-func serviceMetaData(config *dockerapi.Config, port string) map[string]string {
-	meta := config.Env
-	for k, v := range config.Labels {
-		meta = append(meta, k + "=" + v)
-	}
+func serviceMetaData(meta []string, port string) map[string]string {
 	metadata := make(map[string]string)
 	for _, kv := range meta {
 		kvp := strings.SplitN(kv, "=", 2)
@@ -55,30 +52,30 @@ func serviceMetaData(config *dockerapi.Config, port string) map[string]string {
 	return metadata
 }
 
-func servicePort(container *dockerapi.Container, port dockerapi.Port, published []dockerapi.PortBinding) ServicePort {
-	var hp, hip, ep, ept string
+func serviceContainer(container *dockerapi.Container) ServiceContainer {
+	meta := container.Config.Env
+	for k, v := range container.Config.Labels {
+		meta = append(meta, k + "=" + v)
+	}
+	return ServiceContainer{
+		Hostname:    container.Config.Hostname,
+		ID:          container.ID,
+		InternalIP:  container.NetworkSettings.IPAddress,
+		ImageName:   strings.Split(path.Base(container.Config.Image), ":")[0],
+		Meta:        meta,
+	}
+}
+
+func servicePort(port dockerapi.Port, published []dockerapi.PortBinding) ServicePort {
+	servicePort := ServicePort{
+		ExposedPort: port.Port(),
+		PortType:    port.Proto(),
+	}
+
 	if len(published) > 0 {
-		hp = published[0].HostPort
-		hip = published[0].HostIP
+		servicePort.HostIP = published[0].HostIP
+		servicePort.HostPort = published[0].HostPort
 	}
-	if hip == "" {
-		hip = "0.0.0.0"
-	}
-	exposedPort := strings.Split(string(port), "/")
-	ep = exposedPort[0]
-	if len(exposedPort) == 2 {
-		ept = exposedPort[1]
-	} else {
-		ept = "tcp"  // default
-	}
-	return ServicePort{
-		HostPort:          hp,
-		HostIP:            hip,
-		ExposedPort:       ep,
-		ExposedIP:         container.NetworkSettings.IPAddress,
-		PortType:          ept,
-		ContainerID:       container.ID,
-		ContainerHostname: container.Config.Hostname,
-		container:         container,
-	}
+
+	return servicePort
 }
