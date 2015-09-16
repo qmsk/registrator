@@ -3,23 +3,23 @@ package vulcan
 // etcd /vulcand/... API definitions
 
 const (
-    FrontendType    = "http"
-    BackendType     = "http"
+	FrontendType = "http"
+	BackendType  = "http"
 )
 
 // etcd /vulcand/frontend/...
 type Frontend struct {
-    Type        string
-    BackendId   string
-    Route       string
+	Type      string
+	BackendId string
+	Route     string
 }
 
 // etcd /vulcand/backends/...
 type Backend struct {
-    Type        string
+	Type string
 }
 
 // etcd /vulcand/backends/.../servers/... JSON
 type BackendServer struct {
-    URL         string
+	URL string
 }
