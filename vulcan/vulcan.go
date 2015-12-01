@@ -123,4 +123,6 @@ func (self *VulcanAdapter) Refresh(service *bridge.Service) error {
 			return err
 		}
 	}
+
+    return nil
 }
