@@ -80,7 +80,8 @@ func (self *VulcanAdapter) Register(service *bridge.Service) error {
 	attrs := serviceAttrs(service)
 
 	if backendPath, backend := attrs.backend(); backendPath != "" {
-		if err := self.setJSON(backendPath, backend, service.TTL); err != nil {
+		// shared across all servers; persistent
+		if err := self.setJSON(backendPath, backend, 0); err != nil {
 			return err
 		}
 	}
@@ -92,7 +93,8 @@ func (self *VulcanAdapter) Register(service *bridge.Service) error {
 	}
 
 	if frontendPath, frontend := attrs.frontend(); frontendPath != "" {
-		if err := self.setJSON(frontendPath, frontend, service.TTL); err != nil {
+		// shared across all servers; persistent
+		if err := self.setJSON(frontendPath, frontend, 0); err != nil {
 			return err
 		}
 	}
@@ -113,5 +115,12 @@ func (self *VulcanAdapter) Deregister(service *bridge.Service) error {
 }
 
 func (self *VulcanAdapter) Refresh(service *bridge.Service) error {
-	return self.Register(service)
+	attrs := serviceAttrs(service)
+
+	// server only
+	if serverPath, server := attrs.server(); serverPath != "" {
+		if err := self.setJSON(serverPath, server, service.TTL); err != nil {
+			return err
+		}
+	}
 }
